@@ -21,6 +21,7 @@ client = discord.Bot(intents=intents)
 async def on_ready():
     # Base channels
     client.admin = client.get_user(int(os.getenv("ADMIN_ID")))
+    client.botId = client.get_user(int(os.getenv("BOT_ID")))
     client.gatorLog = client.get_channel(int(os.getenv("GATOR_LOG")))
     client.privateChannel = client.get_channel(int(os.getenv("PRIVATE")))
 
@@ -42,6 +43,10 @@ async def on_ready():
 
     #for print statements and if logic
     successChannels = []
+
+    #checks to see if the say command is locked or not
+    with open('saveState.json', 'r') as file:
+        client.sayLock = json.load(file)
 
     #opens banlist
     with open('banlist.json', 'r') as file:
@@ -113,8 +118,9 @@ async def on_ready():
     newMessage = '# *Channels Set:*\n>>> {}'.format(formattedMessage)
     await client.gatorLog.send(newMessage)
 
-#i must dm the bot to send messages to channels
-#for private dms, gets rerouted to private channel.
+    #i must dm the bot to send messages to channels
+    #for private dms, gets rerouted to private channel.
+
 @client.event
 async def on_message(message):
     for x in client.channels:
@@ -151,10 +157,10 @@ async def on_message(message):
 @client.slash_command(name="reload", description="Reload the channels.")
 async def reload(ctx: discord.ApplicationContext):
     if(ctx.author == client.admin):
-        await ctx.respond("Reloaded!")
+        await ctx.respond("Reloaded!", ephemeral=True)
         await on_ready()
     else:
-        await ctx.respond("Please contact InvaderGator to reload channels.")
+        await ctx.respond("Please contact InvaderGator to reload channels.", ephemeral=True)
 
 @client.slash_command(name="say", description="Say something to the bot!")
 async def say(ctx: discord.ApplicationContext, message: str):
@@ -171,20 +177,34 @@ async def say(ctx: discord.ApplicationContext, message: str):
         for x in client.channels:
             await x.send("-# *" + ctx.author.name + "*: " + message)
         await ctx.respond("Message sent.", ephemeral=True)
-    else:
+    elif banned:
         await ctx.respond("Ur banned, loser.", ephemeral=True)
+    elif client.sayLock:
+        await ctx.respond("Channel say is locked. Please contact @invadergator if you think this is a mistake.", ephemeral=True)
 
 @client.slash_command(name="adminlock", description="locks say command.")
 async def adminlock(ctx: discord.ApplicationContext):
     if(ctx.author == client.admin):
         client.sayLock = True
-        await ctx.respond("Say command locked.")
+        with open("saveState.json", "w") as file:
+            json.dump(client.sayLock, file)
+
+        await ctx.respond("Say command locked.", ephemeral=True)
+        await on_ready()
+    else:
+        ctx.respond("Please contact @invadergator to lock the command", ephemeral=True)
 
 @client.slash_command(name="adminunlock", description="unlocks say command.")
 async def adminunlock(ctx: discord.ApplicationContext):
     if(ctx.author == client.admin):
-        client.sayLock = True
-        await ctx.respond("Say command unlocked.")
+        client.sayLock = False
+        with open("saveState.json", "w") as file:
+            json.dump(client.sayLock, file)
+
+        await ctx.respond("Say command unlocked.", ephemeral=True)
+        await on_ready()
+    else:
+        ctx.respond("Please contact @invadergator to unlock the command.", ephemeral=True)
 
 @client.slash_command(name="adminban", description="DEATH.")
 async def adminban(ctx: discord.ApplicationContext, message: str):
@@ -200,9 +220,11 @@ async def adminban(ctx: discord.ApplicationContext, message: str):
     if(ctx.author == client.admin):
         client.bannedUsers.append(int(newMessage))
         json.dump(client.bannedUsers, open("banlist.json", "w"))
-        await ctx.respond("User, " + user.mention + " banned from saybot command!")
-        await user.send("User, " + user.name  + ", have been banned from gator messenger! Please contact @invadergator to get unbanned.")
+        await ctx.respond("User, " + user.mention + " banned from saybot command!", ephemeral=True)
+        await user.send("User, " + user.name  + ", you have been banned from gator messenger! Please contact @invadergator to get unbanned.")
         await on_ready()
+    else:
+        ctx.respond("You aren't admin. Stop trying.", ephemeral=True)
 
 @client.slash_command(name="adminunban", description="life. (:")
 async def adminunban(ctx: discord.ApplicationContext, message: str):
@@ -231,7 +253,11 @@ async def adminunban(ctx: discord.ApplicationContext, message: str):
         client.bannedUsers = newMessageArray
 
         json.dump(client.bannedUsers, open("banlist.json", "w"))
-        await ctx.respond("User, " + user.mention + " unbanned from saybot command!")
+        await ctx.respond("User, " + user.mention + " unbanned from saybot command!", ephemeral=True)
         await on_ready()
 
+@client.slash_command(name="github", description="View code.")
+async def github(ctx: discord.ApplicationContext):
+    ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
+    
 client.run(TOKEN)
