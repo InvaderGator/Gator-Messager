@@ -258,6 +258,7 @@ async def adminunban(ctx: discord.ApplicationContext, message: str):
 
 @client.slash_command(name="github", description="View code.")
 async def github(ctx: discord.ApplicationContext):
-    ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
+    await ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
     
+
 client.run(TOKEN)
