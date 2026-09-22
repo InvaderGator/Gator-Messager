@@ -4,11 +4,8 @@
 The way the bot works is that it is hardwired to respond to channel IDs (CIDs) and user IDs (UIDs)
 You will need to change code in the python script to respond to the .env file.
 
-There is a /say command for users to spread their will across discord channels
-There is a complementary saylock and ban command too so users can't as well
-
 ## .JSON
-The .JSON files are used to write and save data for the bot. This is the banlist and the saylock saving.
+The .JSON files are used to write and save data for the bot. This is the save state for the loading screen if toggled.
 
 **If you don't want the bot to spew ephermal/private command messages to a private-dm channel, then ban the bot through the /adminban command.**
 
