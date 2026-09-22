@@ -83,7 +83,7 @@ async def on_ready():
         print("Receiving Channel not set!")
         await client.gatorLog.send("## FAIL : Receiving Channel Not Set ❌")
     else:
-        print("Private Channel Set!")
+        print("Receiving Channel Set!")
         successChannels.append("### SUCCESS: Receiving Channel Set! ✅")
 
     #counter is for seeing if there are channels not set, and if there are, then how many channels aren't set
@@ -151,26 +151,52 @@ async def on_ready():
 @client.event
 async def on_message(message):
     inReceivingChannels = False
+
     for x in client.channels:
         if message.channel == x:
             inReceivingChannels = True
         else:
             pass
 
-    #Thanks to "gay stoned god" on the py-cord discord server for, over a year ago as i'm writing this, for figuring this out.
-    if not isotheruser(message.author) and message.channel == client.privateChannel:
-        for x in client.channels:
+    #Gay Stoned God is really coming in clutch huh,...
+    if message.snapshots:
+        if not isotheruser(message.author) and message.channel == client.privateChannel:
+            if message.snapshots[0].message.content == "":
+                sendMessage = "..."
+            else:
+                sendMessage = ""
+            for x in client.channels:
+                files = []
+                stickers = []
+                for a in message.snapshots[0].message.attachments:
+                    files.append(await a.to_file())
+                for a in message.snapshots[0].message.stickers:
+                    stickers.append(await a.fetch())
+
+                forwardedMessage = f"-# Forwarded..\n> {sendMessage}{message.snapshots[0].message.content}"
+
+                await x.send(forwardedMessage, files=files, stickers=stickers)
+    else:
+        #Thanks to "gay stoned god" on the py-cord discord server for, over a year ago as i'm writing this, for figuring this out.
+        if not isotheruser(message.author) and message.channel == client.privateChannel:
+            for x in client.channels:
+                files = []
+                stickers = []
+                for a in message.attachments:
+                    files.append(await a.to_file())
+                for a in message.stickers:
+                    stickers.append(await a.fetch())
+
+                await x.send(message.content, files=files, stickers=stickers)
+        elif isotheruser(message.author) and inReceivingChannels:
             files = []
+            stickers = []
             for a in message.attachments:
                 files.append(await a.to_file())
-            await x.send(message.content, files=files)
-    elif isotheruser(message.author) and inReceivingChannels:
-        print(message.content)
-        files = []
-        for a in message.attachments:
-            files.append(await a.to_file())
-        combinedFactors = f"### {message.author} from {message.guild} says... \n> __{message.content}__"
-        await client.receivingChannel.send(combinedFactors, files=files)
+            for a in message.stickers:
+                stickers.append(await a.fetch())
+            combinedFactors = f"### {message.author} from {message.guild} says... \n> __{message.content}__"
+            await client.receivingChannel.send(combinedFactors, files=files, stickers=stickers)
 
 @client.slash_command(name="reload", description="Reload the channels.")
 async def reload(ctx: discord.ApplicationContext):
