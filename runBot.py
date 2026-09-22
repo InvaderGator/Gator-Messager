@@ -161,21 +161,38 @@ async def on_message(message):
     #Gay Stoned God is really coming in clutch huh,...
     if message.snapshots:
         if not isotheruser(message.author) and message.channel == client.privateChannel:
-            if message.snapshots[0].message.content == "":
+            forwardedMessageObj = message.snapshots[0].message
+            if forwardedMessageObj.content == "":
                 sendMessage = "..."
             else:
                 sendMessage = ""
             for x in client.channels:
                 files = []
                 stickers = []
-                for a in message.snapshots[0].message.attachments:
+                for a in forwardedMessageObj.attachments:
                     files.append(await a.to_file())
-                for a in message.snapshots[0].message.stickers:
+                for a in forwardedMessageObj.stickers:
                     stickers.append(await a.fetch())
 
-                forwardedMessage = f"-# Forwarded..\n> {sendMessage}{message.snapshots[0].message.content}"
+                forwardedMessage = f"-# Forwarded..\n> {sendMessage}{forwardedMessageObj.content}"
 
                 await x.send(forwardedMessage, files=files, stickers=stickers)
+        elif isotheruser(message.author) and inReceivingChannels:
+            forwardedMessageObj = message.snapshots[0].message
+            if forwardedMessageObj.content == "":
+                sendMessage = "..."
+            else:
+                sendMessage = ""
+            files = []
+            stickers = []
+            for a in forwardedMessageObj.attachments:
+                files.append(await a.to_file())
+            for a in forwardedMessageObj.stickers:
+                stickers.append(await a.fetch())
+
+            forwardedMessage = f"### *{message.author} forwards from {message.guild}:*\n-# Forwarded..\n> {sendMessage}{forwardedMessageObj.content}"
+
+            await client.receivingChannel.send(forwardedMessage, files=files, stickers=stickers)
     else:
         #Thanks to "gay stoned god" on the py-cord discord server for, over a year ago as i'm writing this, for figuring this out.
         if not isotheruser(message.author) and message.channel == client.privateChannel:
@@ -208,7 +225,7 @@ async def reload(ctx: discord.ApplicationContext):
 
 @client.slash_command(name="github", description="View code.")
 async def github(ctx: discord.ApplicationContext):
-    ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
+    await ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
 
 @client.slash_command(name="toggle_loading", description="Toggle loading.")
 async def toggle_loading(ctx: discord.ApplicationContext):
