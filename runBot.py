@@ -2,6 +2,9 @@
 import os
 import discord
 import json
+import random
+import linecache
+import asyncio
 from dotenv import load_dotenv
 
 #load private things
@@ -11,6 +14,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 #set discord intents
 intents = discord.Intents.default()
 intents.members = True
+intents.message_content = True
 
 #initialize client
 #initally built on discord.py, switched to py-cord
@@ -24,6 +28,7 @@ async def on_ready():
     client.botId = client.get_user(int(os.getenv("BOT_ID")))
     client.gatorLog = client.get_channel(int(os.getenv("GATOR_LOG")))
     client.privateChannel = client.get_channel(int(os.getenv("PRIVATE")))
+    client.receivingChannel = client.get_channel(int(os.getenv("RECEIVING")))
 
     #channels that are stored in env
     #different from successChannels
@@ -45,29 +50,11 @@ async def on_ready():
     successChannels = []
 
     #checks to see if the say command is locked or not
-    with open('saveState.json', 'r') as file:
+    with open('doingLoading.json', 'r') as file:
         client.sayLock = json.load(file)
 
-    #opens banlist
-    with open('banlist.json', 'r') as file:
-        client.bannedUsers = json.load(file)
-
-    #gets array of banned users
-    bannedUserNames = []
-    for x in client.bannedUsers:
-        #gets names of banned users for printing
-        bannedUserNames.append(client.get_user(x).name)
-
-    #formats and sends banned user messages in gatorLog
-    formattedBanList = "\n".join(bannedUserNames)
-    banListMessage = '# *Users Banned:*\n>>> {}'.format(formattedBanList)
-    await client.gatorLog.send(banListMessage)
-    print("BANNED USERS:" + str(client.bannedUsers))
-
-
-    #all of these are if a station set or not.
-    #
-    if (client.gatorLog == None):
+    #all of these are if a station set or not..
+    if (client.gatorLog is None):
         print("Log not set!")
         # if this doesn't load, doesn't matter much anyway.
     else:
@@ -76,13 +63,28 @@ async def on_ready():
     #
 
     #
-    if(client.admin == None):
+    if(client.admin is None):
         print("Admin not set!")
         await client.gatorLog.send("## FAIL: Admin Not Set ❌")
     else:
         print("Admin set!")
         successChannels.append("### SUCCESS: Admin Set! ✅")
     #
+
+    #
+    if(client.privateChannel is None):
+        print("Private channel not set!")
+        await client.gatorLog.send("## FAIL : Private Channel Not Set ❌")
+    else:
+        print("Private Channel Set!")
+        successChannels.append("### SUCCESS: Private Channel Set! ✅")
+
+    if(client.receivingChannel is None):
+        print("Receiving Channel not set!")
+        await client.gatorLog.send("## FAIL : Receiving Channel Not Set ❌")
+    else:
+        print("Private Channel Set!")
+        successChannels.append("### SUCCESS: Receiving Channel Set! ✅")
 
     #counter is for seeing if there are channels not set, and if there are, then how many channels aren't set
     counter = 0
@@ -110,49 +112,65 @@ async def on_ready():
         await client.gatorLog.send(list(enumerate(channelsStr)))
 
         for x in client.channels:
-            if x == None:
+            if x is None:
                 client.channels.remove(x)
+
+    isLoading = json.load(open("doingLoading.json"))
 
     #formats and sends message
     formattedMessage = '\n'.join(successChannels)
-    newMessage = '# *Channels Set:*\n>>> {}'.format(formattedMessage)
-    await client.gatorLog.send(newMessage)
+    newMessage = '# Loading is *Channels Set:*\n>>> {}'.format(formattedMessage)
+    await client.gatorLog.send(f"{newMessage} \n# Loading is ```{isLoading}```")
 
-    #i must dm the bot to send messages to channels
-    #for private dms, gets rerouted to private channel.
+    while(isLoading):
+        #There are 86400 seconds in a day.
+        #There are 259200 seconds in 3 days.
+        #There are 3600 seconds in an hour.
+        #There are 43200 in 12 hours.
+
+        randomTime = random.randint(43200, 259200)
+        randomTimeMinutes = int(randomTime/60)
+        randomTimeHours = int(randomTimeMinutes/60)
+        randomTimeDays = int(randomTimeHours/24)
+
+        if randomTimeDays == 1:
+            await client.gatorLog.send(f"Loading screen set for {randomTimeDays} day and {randomTimeDays % 24} hours from now.")
+        elif randomTimeDays > 1:
+            await client.gatorLog.send(f"Loading screen set for {randomTimeDays} days and {randomTimeDays % 24} hours from now.")
+        elif randomTimeDays < 1:
+            await client.gatorLog.send(f"Loading screen set for {randomTimeHours} hours and {randomTimeHours % 60} minutes from now.")
+
+        await asyncio.sleep(randomTime)
+
+        loadingTip = doloading()
+        loadingTip = loadingTip.strip()
+        loadingScreen = f"{loadingTip} <a:gatorLoading:1550230203777679511>"
+        for x in client.channels:
+            await x.send(loadingScreen)
 
 @client.event
 async def on_message(message):
+    inReceivingChannels = False
     for x in client.channels:
-        if message.author == client.admin and isinstance(message.channel, discord.DMChannel):
-            if message.attachments:
-                for y in message.attachments:
-                    messageImage = y.url
-                    await x.send(messageImage)
-                    if (message.content != ""):
-                        await x.send(message.content)
-            else:
-                await x.send(message.content)
-
-    banned = False
-    userID = message.author.id
-    for x in client.bannedUsers:
-        int1 = int(x)
-        int2 = int(userID)
-
-        if(int1 == int2):
-            banned = True
-
-    if not message.author == client.admin and not banned and isinstance(message.channel, discord.DMChannel):
-        if message.attachments:
-            for y in message.attachments:
-                messageImage = y.url
-                await client.privateChannel.send("*" + message.author.name + "*" + "SENT" + messageImage)
-                if (message.content != ""):
-                    await client.privateChannel.send("*" + message.author.name + " says...* " "'" + "**" + message.content + "**")
+        if message.channel == x:
+            inReceivingChannels = True
         else:
-            await client.privateChannel.send("*" + message.author.name + " says...* " "'" + "**" + message.content + "**")
-        print(message.author.name + " says... " + "'" + message.content + "'")
+            pass
+
+    #Thanks to "gay stoned god" on the py-cord discord server for, over a year ago as i'm writing this, for figuring this out.
+    if not isotheruser(message.author) and message.channel == client.privateChannel:
+        for x in client.channels:
+            files = []
+            for a in message.attachments:
+                files.append(await a.to_file())
+            await x.send(message.content, files=files)
+    elif isotheruser(message.author) and inReceivingChannels:
+        print(message.content)
+        files = []
+        for a in message.attachments:
+            files.append(await a.to_file())
+        combinedFactors = f"### {message.author} from {message.guild} says... \n> __{message.content}__"
+        await client.receivingChannel.send(combinedFactors, files=files)
 
 @client.slash_command(name="reload", description="Reload the channels.")
 async def reload(ctx: discord.ApplicationContext):
@@ -162,103 +180,30 @@ async def reload(ctx: discord.ApplicationContext):
     else:
         await ctx.respond("Please contact InvaderGator to reload channels.", ephemeral=True)
 
-@client.slash_command(name="say", description="Say something to the bot!")
-async def say(ctx: discord.ApplicationContext, message: str):
-    banned = False
-    userID = ctx.author.id
-    for x in client.bannedUsers:
-        int1 = int(x)
-        int2 = int(userID)
-
-        if(int1 == int2):
-            banned = True
-
-    if not banned and client.sayLock != True:
-        for x in client.channels:
-            await x.send("-# *" + ctx.author.name + "*: " + message)
-        await ctx.respond("Message sent.", ephemeral=True)
-    elif banned:
-        await ctx.respond("Ur banned, loser.", ephemeral=True)
-    elif client.sayLock:
-        await ctx.respond("Channel say is locked. Please contact @invadergator if you think this is a mistake.", ephemeral=True)
-
-@client.slash_command(name="adminlock", description="locks say command.")
-async def adminlock(ctx: discord.ApplicationContext):
-    if(ctx.author == client.admin):
-        client.sayLock = True
-        with open("saveState.json", "w") as file:
-            json.dump(client.sayLock, file)
-
-        await ctx.respond("Say command locked.", ephemeral=True)
-        await on_ready()
-    else:
-        ctx.respond("Please contact @invadergator to lock the command", ephemeral=True)
-
-@client.slash_command(name="adminunlock", description="unlocks say command.")
-async def adminunlock(ctx: discord.ApplicationContext):
-    if(ctx.author == client.admin):
-        client.sayLock = False
-        with open("saveState.json", "w") as file:
-            json.dump(client.sayLock, file)
-
-        await ctx.respond("Say command unlocked.", ephemeral=True)
-        await on_ready()
-    else:
-        ctx.respond("Please contact @invadergator to unlock the command.", ephemeral=True)
-
-@client.slash_command(name="adminban", description="DEATH.")
-async def adminban(ctx: discord.ApplicationContext, message: str):
-    newMessageArray = []
-
-    for x in message:
-        if(not(x == "<" or x == ">" or x == "@")):
-            newMessageArray.append(x)
-
-    newMessage = "".join(newMessageArray)
-    user = client.get_user(int(newMessage))
-
-    if(ctx.author == client.admin):
-        client.bannedUsers.append(int(newMessage))
-        json.dump(client.bannedUsers, open("banlist.json", "w"))
-        await ctx.respond("User, " + user.mention + " banned from saybot command!", ephemeral=True)
-        await user.send("User, " + user.name  + ", you have been banned from gator messenger! Please contact @invadergator to get unbanned.")
-        await on_ready()
-    else:
-        ctx.respond("You aren't admin. Stop trying.", ephemeral=True)
-
-@client.slash_command(name="adminunban", description="life. (:")
-async def adminunban(ctx: discord.ApplicationContext, message: str):
-    newMessageArray = []
-    newMessage = ""
-
-    for x in message:
-        if(not(x == "<" or x == ">" or x == "@")):
-            newMessageArray.append(x)
-
-    newMessage = "".join(newMessageArray)
-    user = client.get_user(int(newMessage))
-
-    if(ctx.author == client.admin):
-        newMessageArray = []
-        for x in client.bannedUsers:
-
-            int1 = int(x)
-            int2 = int(newMessage)
-            print(x)
-            print(newMessage)
-
-            if(int1 != int2):
-                print("TRIGGER")
-                newMessageArray.append(x)
-        client.bannedUsers = newMessageArray
-
-        json.dump(client.bannedUsers, open("banlist.json", "w"))
-        await ctx.respond("User, " + user.mention + " unbanned from saybot command!", ephemeral=True)
-        await on_ready()
-
 @client.slash_command(name="github", description="View code.")
 async def github(ctx: discord.ApplicationContext):
-    await ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
-    
+    ctx.respond("https://github.com/InvaderGator/Gator-Messager", ephemeral=True)
+
+@client.slash_command(name="toggle_loading", description="Toggle loading.")
+async def toggle_loading(ctx: discord.ApplicationContext):
+    isTrue = json.load(open("doingLoading.json"))
+    change = not isTrue
+
+    json.dump(change, open("doingLoading.json", "w"))
+    await ctx.respond(f"## Loading screens are now {change}.", ephemeral=True)
+    await on_ready()
+
+def isotheruser(user):
+    if user == client.admin:
+        return False
+    elif user == client.botId:
+        return False
+    else:
+        return True
+
+def doloading():
+    randomNum = random.randint(1, 1000)
+    randomTip = linecache.getline("loadingScreens.txt", randomNum)
+    return randomTip
 
 client.run(TOKEN)
